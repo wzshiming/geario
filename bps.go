@@ -1,6 +1,7 @@
-package speed
+package geario
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -64,14 +65,8 @@ func (p *BPS) Add(b B) {
 		p.Put = n
 		p.End = p.Put
 	}
-}
 
-func (p *BPS) limit(d time.Duration) {
-	p.mut.Lock()
-	defer p.mut.Unlock()
-
-	now := p.unixNano()
-	for p.End != nil && now-p.End.t > int64(d)/p.u {
+	for p.End != nil && now-p.End.t > int64(p.r)/p.u {
 		p.pool.Put(p.End)
 		p.End = p.End.Next
 	}
@@ -80,8 +75,17 @@ func (p *BPS) limit(d time.Duration) {
 	}
 }
 
-func (p *BPS) Number() B {
-	p.limit(p.r)
+func (p *BPS) Next() time.Time {
+	p.mut.RLock()
+	defer p.mut.RUnlock()
+
+	if p.End != nil {
+		return time.Unix(0, p.End.t*p.u).Add(p.r)
+	}
+	return time.Time{}
+}
+
+func (p *BPS) Aver() B {
 	p.mut.RLock()
 	defer p.mut.RUnlock()
 
@@ -89,10 +93,9 @@ func (p *BPS) Number() B {
 	for i := p.End; i != nil; i = i.Next {
 		d += i.b
 	}
-
-	return d / B(p.r/time.Second)
+	return d
 }
 
 func (p *BPS) String() string {
-	return p.Number().String() + "/S"
+	return fmt.Sprintf("%v/%v", p.Aver(), p.r)
 }
