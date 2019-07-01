@@ -22,8 +22,9 @@ type BPS struct {
 }
 
 func NewBPSAver(r time.Duration) *BPS {
-	if r < time.Second {
-		r = time.Second
+	const min = time.Millisecond
+	if r < min {
+		r = min
 	}
 	return &BPS{
 		r: r,
@@ -32,7 +33,7 @@ func NewBPSAver(r time.Duration) *BPS {
 				return &nodeBPS{}
 			},
 		},
-		u: int64(time.Millisecond),
+		u: int64(min),
 	}
 }
 
