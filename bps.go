@@ -43,8 +43,6 @@ func (p *BPS) unixNano() int64 {
 
 func (p *BPS) Add(b B) {
 	p.mut.Lock()
-	defer p.mut.Unlock()
-
 	now := p.unixNano()
 
 	if p.Put != nil {
@@ -66,7 +64,11 @@ func (p *BPS) Add(b B) {
 		p.Put = n
 		p.End = p.Put
 	}
+	p.clear(now)
+	p.mut.Unlock()
+}
 
+func (p *BPS) clear(now int64) {
 	for p.End != nil && now-p.End.t > int64(p.r)/p.u {
 		p.pool.Put(p.End)
 		p.End = p.End.Next
@@ -87,13 +89,15 @@ func (p *BPS) Next() time.Time {
 }
 
 func (p *BPS) Aver() B {
+	p.mut.Lock()
+	p.clear(p.unixNano())
+	p.mut.Unlock()
 	p.mut.RLock()
-	defer p.mut.RUnlock()
-
 	d := B(0)
 	for i := p.End; i != nil; i = i.Next {
 		d += i.b
 	}
+	p.mut.RUnlock()
 	return d
 }
 

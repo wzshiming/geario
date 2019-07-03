@@ -1,6 +1,7 @@
 package geario
 
 import (
+	"fmt"
 	"io"
 	"time"
 )
@@ -44,12 +45,14 @@ func (g *gear) add(b int) {
 	g.bps.Add(B(b))
 }
 
-func (g *gear) step() {
+func (g *gear) step() bool {
 	aver := g.bps.Aver()
+	fmt.Println(aver)
 	if aver < g.limit {
-		return
+		return true
 	}
 	time.Sleep(g.bps.Next().Sub(time.Now()))
+	return g.step()
 }
 
 type gearReader struct {
