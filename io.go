@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// GearReader is limit the speed of reading from io.Reader
 func GearReader(r io.Reader, duration time.Duration, limit B) io.Reader {
 	return &gearReader{
 		newGear(duration, limit),
@@ -13,6 +14,7 @@ func GearReader(r io.Reader, duration time.Duration, limit B) io.Reader {
 	}
 }
 
+// GearWriter is limit the speed of writing to io.Writer
 func GearWriter(w io.Writer, duration time.Duration, limit B) io.Writer {
 	return &gearWriter{
 		newGear(duration, limit),
@@ -20,7 +22,8 @@ func GearWriter(w io.Writer, duration time.Duration, limit B) io.Writer {
 	}
 }
 
-func GearReadWriter(rw io.ReadWriter, duration time.Duration, limit B) io.Writer {
+// GearReadWriter is limit the speed of reading and writing from io.ReadWriter
+func GearReadWriter(rw io.ReadWriter, duration time.Duration, limit B) io.ReadWriter {
 	return &gearReadWriter{
 		newGear(duration, limit),
 		rw,

@@ -30,6 +30,7 @@ const (
 	YiB B = step * step * step * step * step * step * step * step
 )
 
+// B is byte
 type B float64
 
 func (u B) String() string {
@@ -53,6 +54,7 @@ func (u B) String() string {
 	return fmt.Sprintf("%g%siB", last, snum)
 }
 
+// Parse text to byte type
 func Parse(p string) (B, error) {
 	f := 0.
 	u := ""
