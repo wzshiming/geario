@@ -63,7 +63,11 @@ type gearReader struct {
 }
 
 func (g *gearReader) Read(p []byte) (n int, err error) {
+	limit := int(g.gear.limit)
 	g.gear.step()
+	if len(p) > limit {
+		p = p[:limit]
+	}
 	n, err = g.reader.Read(p)
 	g.gear.add(n)
 	return n, err
@@ -75,6 +79,24 @@ type gearWriter struct {
 }
 
 func (g *gearWriter) Write(p []byte) (n int, err error) {
+	limit := int(g.gear.limit)
+	for limit < len(p) {
+		i, err := g.write(p[:limit])
+		n += i
+		if err != nil {
+			return n, err
+		}
+		p = p[limit:]
+	}
+	i, err := g.write(p)
+	n += i
+	if err != nil {
+		return n, err
+	}
+	return n, nil
+}
+
+func (g *gearWriter) write(p []byte) (n int, err error) {
 	g.gear.step()
 	n, err = g.writer.Write(p)
 	g.gear.add(n)
@@ -94,6 +116,24 @@ func (g *gearReadWriter) Read(p []byte) (n int, err error) {
 }
 
 func (g *gearReadWriter) Write(p []byte) (n int, err error) {
+	limit := int(g.gear.limit)
+	for limit < len(p) {
+		i, err := g.write(p[:limit])
+		n += i
+		if err != nil {
+			return n, err
+		}
+		p = p[limit:]
+	}
+	i, err := g.write(p)
+	n += i
+	if err != nil {
+		return n, err
+	}
+	return n, nil
+}
+
+func (g *gearReadWriter) write(p []byte) (n int, err error) {
 	g.gear.step()
 	n, err = g.rw.Write(p)
 	g.gear.add(n)

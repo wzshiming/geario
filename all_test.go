@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 )
@@ -19,22 +18,44 @@ func TestAll(t *testing.T) {
 }
 
 func TestGearWriter(t *testing.T) {
-	out := GearWriter(os.Stdout, time.Second, 2)
-	fmt.Fprintf(out, "hello world")
-	fmt.Fprintf(out, "hello world")
+	out := GearWriter(bytes.NewBuffer(nil), time.Second, 5)
+	begin := time.Now()
+	fmt.Fprintf(out, "hello world\n")
+	end := time.Now()
+	if end.Sub(begin) < time.Second*2 {
+		t.Fail()
+	}
 }
 
 func TestGearReader(t *testing.T) {
-	out := GearReader(bytes.NewBufferString("hello world\nhello world"), time.Second, 2)
+	out := GearReader(bytes.NewBufferString("hello world\n"), time.Second, 5)
+	begin := time.Now()
 	ioutil.ReadAll(out)
+	end := time.Now()
+	if end.Sub(begin) < time.Second*2 {
+		t.Fail()
+	}
 }
 
 func TestGearReadWriter(t *testing.T) {
-	buf := &bytes.Buffer{}
-	out := GearReadWriter(buf, time.Second, 2)
-	fmt.Fprintf(out, "hello world")
-	fmt.Fprintf(out, "hello world")
-	ioutil.ReadAll(out)
+	out := GearReadWriter(bytes.NewBuffer(nil), time.Second, 10)
+	{
+		begin := time.Now()
+		fmt.Fprintf(out, "hello world\n")
+		end := time.Now()
+		if end.Sub(begin) < time.Second*1 {
+			t.Fail()
+		}
+	}
+
+	{
+		begin := time.Now()
+		ioutil.ReadAll(out)
+		end := time.Now()
+		if end.Sub(begin) < time.Second*1 {
+			t.Fail()
+		}
+	}
 }
 
 var bb = NewBPSAver(time.Second)
