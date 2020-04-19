@@ -1,7 +1,6 @@
 package geario
 
 import (
-	"fmt"
 	"io"
 	"time"
 )
@@ -50,11 +49,11 @@ func (g *gear) add(b int) {
 
 func (g *gear) step() bool {
 	aver := g.bps.Aver()
-	fmt.Println(aver)
 	if aver < g.limit {
 		return true
 	}
-	time.Sleep(g.bps.Next().Sub(time.Now()))
+	wait := g.bps.Next().Sub(time.Now())
+	time.Sleep(wait)
 	return g.step()
 }
 
@@ -65,8 +64,9 @@ type gearReader struct {
 
 func (g *gearReader) Read(p []byte) (n int, err error) {
 	g.gear.step()
-	g.gear.add(len(p))
-	return g.reader.Read(p)
+	n, err = g.reader.Read(p)
+	g.gear.add(n)
+	return n, err
 }
 
 type gearWriter struct {
@@ -76,8 +76,9 @@ type gearWriter struct {
 
 func (g *gearWriter) Write(p []byte) (n int, err error) {
 	g.gear.step()
-	g.gear.add(len(p))
-	return g.writer.Write(p)
+	n, err = g.writer.Write(p)
+	g.gear.add(n)
+	return n, err
 }
 
 type gearReadWriter struct {
@@ -87,12 +88,14 @@ type gearReadWriter struct {
 
 func (g *gearReadWriter) Read(p []byte) (n int, err error) {
 	g.gear.step()
-	g.gear.add(len(p))
-	return g.rw.Read(p)
+	n, err = g.rw.Read(p)
+	g.gear.add(n)
+	return n, err
 }
 
 func (g *gearReadWriter) Write(p []byte) (n int, err error) {
 	g.gear.step()
-	g.gear.add(len(p))
-	return g.rw.Write(p)
+	n, err = g.rw.Write(p)
+	g.gear.add(n)
+	return n, err
 }
