@@ -64,41 +64,42 @@ func Parse(p string) (B, error) {
 		return 0, err
 	}
 	u = strings.ToUpper(u)
+	u = strings.TrimSuffix(u, "B")
 	switch u {
-	case "", "B":
+	case "":
 		return B(f), nil
-	case "KB":
+	case "K":
 		return B(f) * KB, nil
-	case "MB":
+	case "M":
 		return B(f) * MB, nil
-	case "GB":
+	case "G":
 		return B(f) * GB, nil
-	case "TB":
+	case "T":
 		return B(f) * TB, nil
-	case "PB":
+	case "P":
 		return B(f) * PB, nil
-	case "EB":
+	case "E":
 		return B(f) * EB, nil
-	case "ZB":
+	case "Z":
 		return B(f) * ZB, nil
-	case "YB":
+	case "Y":
 		return B(f) * YB, nil
-	case "KIB":
+	case "KI":
 		return B(f) * KiB, nil
-	case "MIB":
+	case "MI":
 		return B(f) * MiB, nil
-	case "GIB":
+	case "GI":
 		return B(f) * GiB, nil
-	case "TIB":
+	case "TI":
 		return B(f) * TiB, nil
-	case "PIB":
+	case "PI":
 		return B(f) * PiB, nil
-	case "EIB":
+	case "EI":
 		return B(f) * EiB, nil
-	case "ZIB":
+	case "ZI":
 		return B(f) * ZiB, nil
-	case "YIB":
+	case "YI":
 		return B(f) * YiB, nil
 	}
-	return 0, fmt.Errorf("Parse failure `%s`", p)
+	return 0, fmt.Errorf("parse failure %q", p)
 }

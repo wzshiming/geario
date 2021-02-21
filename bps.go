@@ -3,22 +3,41 @@ package geario
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 type nodeBPS struct {
 	b    B
 	t    int64
-	Next *nodeBPS
+	next *nodeBPS
 }
 
 type BPS struct {
-	Put  *nodeBPS
-	End  *nodeBPS
-	mut  sync.RWMutex
-	pool *sync.Pool
-	r    time.Duration
-	u    int64
+	put *nodeBPS
+	end *nodeBPS
+	mut sync.RWMutex
+	r   time.Duration
+	u   int64
+	max int64
+}
+
+var pool = &sync.Pool{
+	New: func() interface{} {
+		return &nodeBPS{}
+	},
+}
+
+func getNodeBPS(t int64, b B) *nodeBPS {
+	n, _ := pool.Get().(*nodeBPS)
+	n.t = t
+	n.b = b
+	n.next = nil
+	return n
+}
+
+func putNodeBPS(n *nodeBPS) {
+	pool.Put(n)
 }
 
 func NewBPSAver(r time.Duration) *BPS {
@@ -28,11 +47,6 @@ func NewBPSAver(r time.Duration) *BPS {
 	}
 	return &BPS{
 		r: r,
-		pool: &sync.Pool{
-			New: func() interface{} {
-				return &nodeBPS{}
-			},
-		},
 		u: int64(min),
 	}
 }
@@ -42,39 +56,33 @@ func (p *BPS) unixNano() int64 {
 }
 
 func (p *BPS) Add(b B) {
-	p.mut.Lock()
 	now := p.unixNano()
 
-	if p.Put != nil {
-		if p.Put.t == now {
-			p.Put.b += b
-		} else {
-			n, _ := p.pool.Get().(*nodeBPS)
-			n.t = now
-			n.b = b
-			n.Next = nil
-			p.Put.Next = n
-			p.Put = p.Put.Next
-		}
+	p.mut.Lock()
+	defer p.mut.Unlock()
+
+	if p.put == nil {
+		n := getNodeBPS(now, b)
+		p.put = n
+		p.end = n
+	} else if p.put.t == now {
+		p.put.b += b
 	} else {
-		n, _ := p.pool.Get().(*nodeBPS)
-		n.t = now
-		n.b = b
-		n.Next = nil
-		p.Put = n
-		p.End = p.Put
+		n := getNodeBPS(now, b)
+		p.put.next = n
+		p.put = n
 	}
+
 	p.clear(now)
-	p.mut.Unlock()
 }
 
 func (p *BPS) clear(now int64) {
-	for p.End != nil && now-p.End.t > int64(p.r)/p.u {
-		p.pool.Put(p.End)
-		p.End = p.End.Next
+	for p.end != nil && now-p.end.t > int64(p.r)/p.u {
+		putNodeBPS(p.end)
+		p.end = p.end.next
 	}
-	if p.End == nil {
-		p.Put = nil
+	if p.end == nil {
+		p.put = nil
 	}
 }
 
@@ -82,25 +90,42 @@ func (p *BPS) Next() time.Time {
 	p.mut.RLock()
 	defer p.mut.RUnlock()
 
-	if p.End != nil {
-		return time.Unix(0, p.End.t*p.u).Add(p.r)
+	if p.end != nil {
+		return time.Unix(0, p.end.t*p.u).Add(p.r)
 	}
 	return time.Time{}
 }
 
 func (p *BPS) Aver() B {
+	now := p.unixNano()
+
 	p.mut.Lock()
-	p.clear(p.unixNano())
+	p.clear(now)
 	p.mut.Unlock()
+
 	p.mut.RLock()
 	d := B(0)
-	for i := p.End; i != nil; i = i.Next {
+	for i := p.end; i != nil; i = i.next {
 		d += i.b
 	}
 	p.mut.RUnlock()
+
+	if int64(d) > p.max {
+		p.max = int64(d)
+	}
 	return d
 }
 
+func (p *BPS) MaxAver() B {
+	return B(atomic.LoadInt64(&p.max))
+}
+
 func (p *BPS) String() string {
-	return fmt.Sprintf("%v/%v", p.Aver(), p.r)
+	s := ""
+	if p.r == time.Second {
+		s = "s"
+	} else {
+		s = p.r.String()
+	}
+	return fmt.Sprintf("%v/%v", p.Aver(), s)
 }
