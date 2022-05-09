@@ -47,7 +47,7 @@ func NewBPSAver(r time.Duration) *BPS {
 	}
 	return &BPS{
 		r: r,
-		u: int64(min),
+		u: int64(r / 10),
 	}
 }
 
@@ -73,7 +73,7 @@ func (p *BPS) Add(b B) {
 		p.put = n
 	}
 
-	p.clear(now)
+	p.aver(now)
 }
 
 func (p *BPS) clear(now int64) {
@@ -97,19 +97,20 @@ func (p *BPS) Next() time.Time {
 }
 
 func (p *BPS) Aver() B {
-	now := p.unixNano()
-
 	p.mut.Lock()
-	p.clear(now)
-	p.mut.Unlock()
+	defer p.mut.Unlock()
 
-	p.mut.RLock()
+	now := p.unixNano()
+	return p.aver(now)
+}
+
+func (p *BPS) aver(now int64) B {
+	p.clear(now)
+
 	d := B(0)
 	for i := p.end; i != nil; i = i.next {
 		d += i.b
 	}
-	p.mut.RUnlock()
-
 	if int64(d) > p.max {
 		p.max = int64(d)
 	}

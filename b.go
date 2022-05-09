@@ -2,104 +2,110 @@ package geario
 
 import (
 	"fmt"
-	"math"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
-const (
-	decimal = "KMGTPEZY"
-	step    = 1024
-)
-
-const (
-	KB  B = 1e3
-	MB  B = 1e6
-	GB  B = 1e9
-	TB  B = 1e12
-	PB  B = 1e15
-	EB  B = 1e18
-	ZB  B = 1e21
-	YB  B = 1e24
-	KiB B = step
-	MiB B = step * step
-	GiB B = step * step * step
-	TiB B = step * step * step * step
-	PiB B = step * step * step * step * step
-	EiB B = step * step * step * step * step * step
-	ZiB B = step * step * step * step * step * step * step
-	YiB B = step * step * step * step * step * step * step * step
-)
-
-// B is byte
 type B float64
 
-func (u B) String() string {
-	u0 := math.Abs(float64(u))
-
-	steps := 0
-	last := u0
-	for u0 >= step {
-		u0 /= step
-		last = u0
-		steps++
-	}
-
-	snum := ""
-	if steps != 0 {
-		snum = decimal[steps-1 : steps]
-	}
-	if snum == "" {
-		return fmt.Sprintf("%gB", last)
-	}
-	return fmt.Sprintf("%g%siB", last, snum)
+func (b B) String() string {
+	return BytesSize(b)
 }
 
-// Parse text to byte type
-func Parse(p string) (B, error) {
-	f := 0.
-	u := ""
+// See: http://en.wikipedia.org/wiki/Binary_prefix
+const (
+	// Decimal
 
-	_, err := fmt.Sscanf(strings.ToUpper(p), "%f%s", &f, &u)
+	KB B = 1000
+	MB B = 1000 * KB
+	GB B = 1000 * MB
+	TB B = 1000 * GB
+	PB B = 1000 * TB
+	EB B = 1000 * PB
+	ZB B = 1000 * EB
+	YB B = 1000 * ZB
+
+	// Binary
+
+	KiB B = 1024
+	MiB B = 1024 * KiB
+	GiB B = 1024 * MiB
+	TiB B = 1024 * GiB
+	PiB B = 1024 * TiB
+	EiB B = 1024 * PiB
+	ZiB B = 1024 * EiB
+	YiB B = 1024 * ZiB
+)
+
+type unitMap map[string]B
+
+var (
+	decimalMap = unitMap{"k": KB, "m": MB, "g": GB, "t": TB, "p": PB, "e": EB, "z": ZB, "y": YB}
+	binaryMap  = unitMap{"k": KiB, "m": MiB, "g": GiB, "t": TiB, "p": PiB, "e": EiB, "z": ZiB, "y": YiB}
+	sizeRegex  = regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpPeEzZyY])?[iI]?[bB]?$`)
+)
+
+var decimapAbbrs = []string{"B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"}
+var binaryAbbrs = []string{"B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"}
+
+func getSizeAndUnit(size B, base B, _map []string) (B, string) {
+	i := 0
+	unitsLimit := len(_map) - 1
+	for size >= base && i < unitsLimit {
+		size = size / base
+		i++
+	}
+	return size, _map[i]
+}
+
+// CustomSize returns a human-readable approximation of a size
+// using custom format.
+func CustomSize(format string, size B, base B, _map []string) string {
+	size, unit := getSizeAndUnit(size, base, _map)
+	return fmt.Sprintf(format, size, unit)
+}
+
+// HumanSizeWithPrecision allows the size to be in any precision
+func HumanSizeWithPrecision(size B, precision int) string {
+	size, unit := getSizeAndUnit(size, 1000.0, decimapAbbrs)
+	return fmt.Sprintf("%.*g%s", precision, size, unit)
+}
+
+// BytesSize returns a human-readable size in bytes, kibibytes,
+// mebibytes, gibibytes, or tebibytes (eg. "44kiB", "17MiB").
+func BytesSize(size B) string {
+	return CustomSize("%.4g%s", size, 1024.0, binaryAbbrs)
+}
+
+// FromHumanSize returns an integer from a human-readable specification of a
+// size using SI standard (eg. "44kB", "17MB").
+func FromHumanSize(size string) (B, error) {
+	return parseSize(size, decimalMap)
+}
+
+// FromBytesSize returns an integer from a human-readable specification of a
+// size using binary standard (eg. "44kiB", "17MiB").
+func FromBytesSize(size string) (B, error) {
+	return parseSize(size, binaryMap)
+}
+
+// Parses the human-readable size string into the amount it represents.
+func parseSize(sizeStr string, uMap unitMap) (B, error) {
+	matches := sizeRegex.FindStringSubmatch(sizeStr)
+	if len(matches) != 4 {
+		return -1, fmt.Errorf("invalid size: '%s'", sizeStr)
+	}
+
+	size, err := strconv.ParseFloat(matches[1], 64)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
-	u = strings.ToUpper(u)
-	u = strings.TrimSuffix(u, "B")
-	switch u {
-	case "":
-		return B(f), nil
-	case "K":
-		return B(f) * KB, nil
-	case "M":
-		return B(f) * MB, nil
-	case "G":
-		return B(f) * GB, nil
-	case "T":
-		return B(f) * TB, nil
-	case "P":
-		return B(f) * PB, nil
-	case "E":
-		return B(f) * EB, nil
-	case "Z":
-		return B(f) * ZB, nil
-	case "Y":
-		return B(f) * YB, nil
-	case "KI":
-		return B(f) * KiB, nil
-	case "MI":
-		return B(f) * MiB, nil
-	case "GI":
-		return B(f) * GiB, nil
-	case "TI":
-		return B(f) * TiB, nil
-	case "PI":
-		return B(f) * PiB, nil
-	case "EI":
-		return B(f) * EiB, nil
-	case "ZI":
-		return B(f) * ZiB, nil
-	case "YI":
-		return B(f) * YiB, nil
+
+	unitPrefix := strings.ToLower(matches[3])
+	if mul, ok := uMap[unitPrefix]; ok {
+		size *= float64(mul)
 	}
-	return 0, fmt.Errorf("parse failure %q", p)
+
+	return B(size), nil
 }

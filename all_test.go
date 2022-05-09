@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 )
 
 func TestAll(t *testing.T) {
-	b, err := Parse("120.912123123412311234123KiB")
+	b, err := FromBytesSize("120.912123123412311234123KiB")
 	t.Log(b, err)
 
 	a := NewBPSAver(time.Second)
@@ -18,9 +19,9 @@ func TestAll(t *testing.T) {
 }
 
 func TestGearWriter(t *testing.T) {
-	out := GearWriter(bytes.NewBuffer(nil), time.Second, 5)
+	out := GearWriter(os.Stderr, time.Second, 5)
 	begin := time.Now()
-	fmt.Fprintf(out, "hello world\n")
+	out.Write([]byte("hello world\n"))
 	end := time.Now()
 	if end.Sub(begin) < time.Second*2 {
 		t.Fail()
@@ -44,7 +45,7 @@ func TestGearReadWriter(t *testing.T) {
 		fmt.Fprintf(out, "hello world\n")
 		end := time.Now()
 		if end.Sub(begin) < time.Second*1 {
-			t.Fail()
+			t.Fatalf("write time: %s", end.Sub(begin))
 		}
 	}
 
@@ -53,7 +54,7 @@ func TestGearReadWriter(t *testing.T) {
 		ioutil.ReadAll(out)
 		end := time.Now()
 		if end.Sub(begin) < time.Second*1 {
-			t.Fail()
+			t.Fatalf("read time: %s", end.Sub(begin))
 		}
 	}
 }
